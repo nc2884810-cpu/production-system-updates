@@ -31,7 +31,7 @@ def main():
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\\nСервер остановлен.")
+        print("\nСервер остановлен.")
     finally:
         server.server_close()
 
