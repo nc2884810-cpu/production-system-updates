@@ -16,4 +16,4 @@ with ReusableTCPServer(("", PORT), MyHandler) as server:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\\nСервер остановлен.")
+        print("\nСервер остановлен.")
