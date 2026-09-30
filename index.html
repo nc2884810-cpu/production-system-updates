@@ -5,15 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Учёт производства</title>
     <link rel="stylesheet" href="style.css">
+    <script src="main.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Мини-система учёта производства</h1>
-            <p class="date" id="currentDate">Сегодня: —</p>
+    <main class="container">
+        <header class="page-header">
+            <div>
+                <h1>Мини-система учёта производства</h1>
+                <p class="date" id="currentDate">Сегодня: —</p>
+            </div>
+            <span class="version-badge" id="appVersion">Версия: —</span>
         </header>
 
-        <section class="statistics">
+        <section class="statistics" aria-label="Статистика производства">
             <div class="stat-card">
                 <span class="stat-title">Всего произведено</span>
                 <strong>0</strong>
@@ -33,26 +37,26 @@
         </section>
 
         <section class="actions">
-            <button id="addProductionButton">+ Добавить производство</button>
+            <button id="addProductionButton" type="button">+ Добавить производство</button>
         </section>
 
         <section class="production-list">
             <h2>Последние операции</h2>
             <p class="empty-message">Производственных записей пока нет.</p>
         </section>
-    </div>
+    </main>
 
-    <div id="productionModal" class="modal hidden" aria-hidden="true">
+    <div id="productionModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="productionModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Добавить производство</h2>
+                <h2 id="productionModalTitle">Добавить производство</h2>
                 <button id="closeModalButton" class="close-button" type="button" aria-label="Закрыть">×</button>
             </div>
 
             <form id="productionForm">
                 <label>
                     Изделие
-                    <input type="text" id="productName" placeholder="Например: ABC-001" required>
+                    <input type="text" id="productName" placeholder="Например: ABC-001" autocomplete="off" required>
                 </label>
 
                 <label>
@@ -75,7 +79,7 @@
                     <textarea id="defectReason" rows="3" placeholder="Например: дефект корпуса"></textarea>
                 </label>
 
-                <div id="formMessage" class="form-message"></div>
+                <div id="formMessage" class="form-message" aria-live="polite"></div>
 
                 <div class="form-actions">
                     <button type="button" id="cancelButton" class="secondary-button">Отмена</button>
@@ -84,7 +88,5 @@
             </form>
         </div>
     </div>
-
-    <script src="main.js"></script>
 </body>
 </html>
