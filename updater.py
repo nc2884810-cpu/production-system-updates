@@ -47,7 +47,7 @@ def version_tuple(version):
 
 
 def normalize_path(relative_path):
-    return relative_path.replace("\\\\", "/").lstrip("/")
+    return relative_path.replace("\\", "/").lstrip("/")
 
 
 def is_protected(relative_path):
@@ -188,7 +188,7 @@ def main():
             print(f"  СКАЧАН    {relative_path}")
 
         if not downloaded:
-            VERSION_FILE.write_text(remote_version + "\\n", encoding="utf-8")
+            VERSION_FILE.write_text(remote_version + "\n", encoding="utf-8")
             print()
             print(f"Файлы уже актуальны. Версия: {remote_version}")
             return
@@ -202,7 +202,7 @@ def main():
             atomic_replace(temp_path, target)
             print(f"  ОБНОВЛЁН  {relative_path}")
 
-        VERSION_FILE.write_text(remote_version + "\\n", encoding="utf-8")
+        VERSION_FILE.write_text(remote_version + "\n", encoding="utf-8")
 
         print()
         print(f"Готово. Версия обновлена до {remote_version}")
