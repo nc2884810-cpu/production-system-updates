@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учёт производства</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Мини-система учёта производства</h1>
+            <p class="date" id="currentDate">Сегодня: —</p>
+        </header>
+
+        <section class="statistics">
+            <div class="stat-card">
+                <span class="stat-title">Всего произведено</span>
+                <strong>0</strong>
+            </div>
+            <div class="stat-card">
+                <span class="stat-title">Годных</span>
+                <strong>0</strong>
+            </div>
+            <div class="stat-card">
+                <span class="stat-title">Брак</span>
+                <strong>0</strong>
+            </div>
+            <div class="stat-card">
+                <span class="stat-title">Процент брака</span>
+                <strong>0%</strong>
+            </div>
+        </section>
+
+        <section class="actions">
+            <button id="addProductionButton">+ Добавить производство</button>
+        </section>
+
+        <section class="production-list">
+            <h2>Последние операции</h2>
+            <p class="empty-message">Производственных записей пока нет.</p>
+        </section>
+    </div>
+
+    <div id="productionModal" class="modal hidden" aria-hidden="true">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить производство</h2>
+                <button id="closeModalButton" class="close-button" type="button" aria-label="Закрыть">×</button>
+            </div>
+
+            <form id="productionForm">
+                <label>
+                    Изделие
+                    <input type="text" id="productName" placeholder="Например: ABC-001" required>
+                </label>
+
+                <label>
+                    Количество
+                    <input type="number" id="quantity" min="1" placeholder="Например: 50" required>
+                </label>
+
+                <label>
+                    Годных
+                    <input type="number" id="goodQuantity" min="0" placeholder="Например: 47" required>
+                </label>
+
+                <label>
+                    Брак
+                    <input type="number" id="defectQuantity" min="0" placeholder="Например: 3" required>
+                </label>
+
+                <label>
+                    Причина брака
+                    <textarea id="defectReason" rows="3" placeholder="Например: дефект корпуса"></textarea>
+                </label>
+
+                <div id="formMessage" class="form-message"></div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancelButton" class="secondary-button">Отмена</button>
+                    <button type="submit">Проверить данные</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
