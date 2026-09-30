@@ -1,21 +1,25 @@
 {
-  "version": "0.2.1",
+  "version": "0.2.2",
   "files": [
     {
       "path": "index.html",
-      "sha256": "3320787bf9786c3a9b3cdae8e1a692108e53d915404337ef29c1a3b5337c9b58"
+      "sha256": "14530adc078f3aee7d3057c69742b6b285c02aff34f34b87030e821f70e836ad"
     },
     {
       "path": "style.css",
-      "sha256": "ed8491f9f422b8623edc1ee344f3cbae460bd1cfbd6b4da8e9264b9665922769"
+      "sha256": "11ae7ccb2eed9a4e87bb377cdb9e568860531b6d1a64469eede592a2ba9acf31"
     },
     {
       "path": "main.js",
-      "sha256": "24b5aff94d2a7ca8aaae13cec2957e744d9f070fd91752632bc078dc898fea4a"
+      "sha256": "6b42038d78356b1b264a889ef6a97f5c9f6579e3daaba9d56e221cd09180ef8c"
     },
     {
       "path": "server.py",
-      "sha256": "cf46dca98014923e6d2ff9040311917768671e2059d22ac7c8b265792d3f6cec"
+      "sha256": "a0abb5de22ac38c16e5ad40c4bd40d89ee4743e248f0b9672ece29b9d768deb2"
+    },
+    {
+      "path": "updater.py",
+      "sha256": "cac75b7a46f502c6ff41a60194af84a0df8f2609ceb579a4a4e530e1956fe6bd"
     }
   ]
 }
