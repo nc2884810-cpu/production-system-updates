@@ -442,10 +442,10 @@ class ProductionHandler(SimpleHTTPRequestHandler):
             payload = self.read_json_body()
             record = create_record(payload)
             self.send_json(201, {"record": record})
-        except ValueError as error:
-            self.send_json(400, {"error": str(error)})
         except json.JSONDecodeError:
             self.send_json(400, {"error": "Некорректный JSON."})
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
         except sqlite3.DatabaseError as error:
             self.send_json(
                 500,
@@ -459,10 +459,10 @@ class ProductionHandler(SimpleHTTPRequestHandler):
             self.send_json(200, {"record": record})
         except RecordNotFoundError as error:
             self.send_json(404, {"error": str(error)})
-        except ValueError as error:
-            self.send_json(400, {"error": str(error)})
         except json.JSONDecodeError:
             self.send_json(400, {"error": "Некорректный JSON."})
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
         except sqlite3.DatabaseError as error:
             self.send_json(
                 500,
