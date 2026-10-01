@@ -3,15 +3,15 @@
   "files": [
     {
       "path": "index.html",
-      "sha256": "133f25104f27ef7dd48ff618c20c4c5590d96f638e368493df15c86ef4a9d3ef"
+      "sha256": "c3ce9fbe6072b3f9de1a2cf812f42c52eb83286e4777e2f55afffc56a2c05425"
     },
     {
       "path": "style.css",
-      "sha256": "34ad1aa9d2d6aedf28ff40baebfab47c20fbad33761b7311cdbfee9f7942bc24"
+      "sha256": "dbd1da6ac7bee0d890a971f3071e7fc3b9aa43d5c63df5d9b85e155960977e43"
     },
     {
       "path": "main.js",
-      "sha256": "dd61e55b2910859846f76b92f33d236f0b492db6688553198c791d480963858b"
+      "sha256": "1a880273ec2ea79912f7b9e2850d4e4aa5767c0783897d6f94efb577ba8a9b70"
     },
     {
       "path": "server.py",
