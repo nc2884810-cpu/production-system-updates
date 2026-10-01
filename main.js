@@ -4,6 +4,9 @@ const byId = (id) => document.getElementById(id);
 
 const productionRecords = [];
 let editingRecordId = null;
+let totalRecordCount = 0;
+let filterTimer = null;
+let loadRequestNumber = 0;
 
 const ui = {
     addButton: byId("addProductionButton"),
@@ -29,6 +32,12 @@ const ui = {
     emptyMessage: byId("emptyMessage"),
     tableWrapper: byId("productionTableWrapper"),
     tableBody: byId("productionTableBody"),
+    filterSearch: byId("filterSearch"),
+    filterDateFrom: byId("filterDateFrom"),
+    filterDateTo: byId("filterDateTo"),
+    filterSort: byId("filterSort"),
+    filterDefectOnly: byId("filterDefectOnly"),
+    resetFiltersButton: byId("resetFiltersButton"),
 };
 
 const requiredElements = Object.values(ui);
@@ -54,6 +63,13 @@ function bindEvents() {
     ui.cancelButton.addEventListener("click", closeModal);
     ui.form.addEventListener("submit", saveProductionRecord);
     ui.tableBody.addEventListener("click", handleTableAction);
+
+    ui.filterSearch.addEventListener("input", scheduleFilterReload);
+    ui.filterDateFrom.addEventListener("change", loadProductionRecords);
+    ui.filterDateTo.addEventListener("change", loadProductionRecords);
+    ui.filterSort.addEventListener("change", loadProductionRecords);
+    ui.filterDefectOnly.addEventListener("change", loadProductionRecords);
+    ui.resetFiltersButton.addEventListener("click", resetFilters);
 
     ui.modal.addEventListener("click", (event) => {
         if (event.target === ui.modal) {
@@ -89,11 +105,79 @@ async function renderVersion() {
     }
 }
 
+function scheduleFilterReload() {
+    window.clearTimeout(filterTimer);
+    filterTimer = window.setTimeout(loadProductionRecords, 300);
+}
+
+function resetFilters() {
+    window.clearTimeout(filterTimer);
+    ui.filterSearch.value = "";
+    ui.filterDateFrom.value = "";
+    ui.filterDateTo.value = "";
+    ui.filterSort.value = "date_desc";
+    ui.filterDefectOnly.checked = false;
+    loadProductionRecords();
+}
+
+function getFilters() {
+    return {
+        search: ui.filterSearch.value.trim(),
+        dateFrom: ui.filterDateFrom.value,
+        dateTo: ui.filterDateTo.value,
+        sort: ui.filterSort.value,
+        defectOnly: ui.filterDefectOnly.checked,
+    };
+}
+
+function hasActiveFilters() {
+    const filters = getFilters();
+
+    return Boolean(
+        filters.search ||
+        filters.dateFrom ||
+        filters.dateTo ||
+        filters.defectOnly ||
+        filters.sort !== "date_desc"
+    );
+}
+
+function buildRecordsUrl() {
+    const filters = getFilters();
+    const params = new URLSearchParams();
+
+    if (filters.search) {
+        params.set("search", filters.search);
+    }
+
+    if (filters.dateFrom) {
+        params.set("date_from", filters.dateFrom);
+    }
+
+    if (filters.dateTo) {
+        params.set("date_to", filters.dateTo);
+    }
+
+    if (filters.defectOnly) {
+        params.set("defect_only", "1");
+    }
+
+    params.set("sort", filters.sort);
+
+    return `/api/records?${params.toString()}`;
+}
+
 async function loadProductionRecords() {
-    ui.storageStatus.textContent = "Загрузка сохранённых записей...";
+    const requestNumber = ++loadRequestNumber;
+    ui.storageStatus.textContent = "Загрузка записей из SQLite...";
 
     try {
-        const data = await requestJson("/api/records");
+        const data = await requestJson(buildRecordsUrl());
+
+        if (requestNumber !== loadRequestNumber) {
+            return;
+        }
+
         const records = Array.isArray(data.records) ? data.records : [];
 
         productionRecords.splice(
@@ -102,11 +186,16 @@ async function loadProductionRecords() {
             ...records.map(normalizeRecord)
         );
 
+        totalRecordCount = Number(data.totalCount) || 0;
         renderAll();
         updateStorageStatus();
     } catch (error) {
+        if (requestNumber !== loadRequestNumber) {
+            return;
+        }
+
         ui.storageStatus.textContent =
-            "Не удалось подключиться к хранилищу. Проверьте server.py.";
+            error.message || "Не удалось загрузить записи из SQLite.";
         console.error("Ошибка загрузки записей:", error);
     }
 }
@@ -183,14 +272,21 @@ async function saveProductionRecord(event) {
 
     try {
         if (editingRecordId === null) {
-            await createProductionRecord(record);
+            await requestJson("/api/records", {
+                method: "POST",
+                headers: jsonHeaders(),
+                body: JSON.stringify(record),
+            });
         } else {
-            await updateProductionRecord(editingRecordId, record);
+            await requestJson(`/api/records/${editingRecordId}`, {
+                method: "PUT",
+                headers: jsonHeaders(),
+                body: JSON.stringify(record),
+            });
         }
 
-        renderAll();
-        updateStorageStatus();
         closeModal();
+        await loadProductionRecords();
     } catch (error) {
         setMessage(
             error.message || "Не удалось сохранить запись на сервере.",
@@ -199,35 +295,6 @@ async function saveProductionRecord(event) {
         setSubmitState(false);
         console.error("Ошибка сохранения записи:", error);
     }
-}
-
-async function createProductionRecord(record) {
-    const data = await requestJson("/api/records", {
-        method: "POST",
-        headers: jsonHeaders(),
-        body: JSON.stringify(record),
-    });
-
-    productionRecords.unshift(normalizeRecord(data.record));
-}
-
-async function updateProductionRecord(recordId, record) {
-    const data = await requestJson(`/api/records/${recordId}`, {
-        method: "PUT",
-        headers: jsonHeaders(),
-        body: JSON.stringify(record),
-    });
-
-    const index = productionRecords.findIndex(
-        (item) => item.id === Number(recordId)
-    );
-
-    if (index === -1) {
-        await loadProductionRecords();
-        return;
-    }
-
-    productionRecords[index] = normalizeRecord(data.record);
 }
 
 async function deleteProductionRecord(record) {
@@ -244,16 +311,7 @@ async function deleteProductionRecord(record) {
             method: "DELETE",
         });
 
-        const index = productionRecords.findIndex(
-            (item) => item.id === record.id
-        );
-
-        if (index !== -1) {
-            productionRecords.splice(index, 1);
-        }
-
-        renderAll();
-        updateStorageStatus();
+        await loadProductionRecords();
     } catch (error) {
         window.alert(error.message || "Не удалось удалить запись.");
         console.error("Ошибка удаления записи:", error);
@@ -372,8 +430,16 @@ function renderAll() {
 }
 
 function updateStorageStatus() {
+    const shown = productionRecords.length;
+
+    if (hasActiveFilters()) {
+        ui.storageStatus.textContent =
+            `SQLite. Показано записей: ${shown} из ${totalRecordCount}.`;
+        return;
+    }
+
     ui.storageStatus.textContent =
-        `Данные сохраняются в SQLite. Записей: ${productionRecords.length}.`;
+        `Данные хранятся в SQLite. Записей: ${totalRecordCount}.`;
 }
 
 function renderProductionTable() {
@@ -381,6 +447,9 @@ function renderProductionTable() {
 
     ui.emptyMessage.hidden = hasRecords;
     ui.tableWrapper.hidden = !hasRecords;
+    ui.emptyMessage.textContent = hasActiveFilters()
+        ? "По заданным фильтрам записей не найдено."
+        : "Производственных записей пока нет.";
     ui.tableBody.replaceChildren();
 
     const fragment = document.createDocumentFragment();
