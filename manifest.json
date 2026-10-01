@@ -1,17 +1,17 @@
 {
-  "version": "0.2.2",
+  "version": "0.3.0",
   "files": [
     {
       "path": "index.html",
-      "sha256": "14530adc078f3aee7d3057c69742b6b285c02aff34f34b87030e821f70e836ad"
+      "sha256": "133f25104f27ef7dd48ff618c20c4c5590d96f638e368493df15c86ef4a9d3ef"
     },
     {
       "path": "style.css",
-      "sha256": "11ae7ccb2eed9a4e87bb377cdb9e568860531b6d1a64469eede592a2ba9acf31"
+      "sha256": "34ad1aa9d2d6aedf28ff40baebfab47c20fbad33761b7311cdbfee9f7942bc24"
     },
     {
       "path": "main.js",
-      "sha256": "6b42038d78356b1b264a889ef6a97f5c9f6579e3daaba9d56e221cd09180ef8c"
+      "sha256": "dd61e55b2910859846f76b92f33d236f0b492db6688553198c791d480963858b"
     },
     {
       "path": "server.py",
