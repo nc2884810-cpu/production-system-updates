@@ -9,10 +9,12 @@ const ui = {
     modal: byId("productionModal"),
     closeButton: byId("closeModalButton"),
     cancelButton: byId("cancelButton"),
+    submitButton: byId("submitProductionButton"),
     form: byId("productionForm"),
     message: byId("formMessage"),
     currentDate: byId("currentDate"),
     version: byId("appVersion"),
+    storageStatus: byId("storageStatus"),
     productName: byId("productName"),
     quantity: byId("quantity"),
     goodQuantity: byId("goodQuantity"),
@@ -35,12 +37,13 @@ if (requiredElements.some((element) => !element)) {
     init();
 }
 
-function init() {
+async function init() {
     renderDate();
     renderVersion();
     renderStatistics();
     renderProductionTable();
     bindEvents();
+    await loadProductionRecords();
 }
 
 function bindEvents() {
@@ -83,6 +86,30 @@ async function renderVersion() {
     }
 }
 
+async function loadProductionRecords() {
+    ui.storageStatus.textContent = "Загрузка сохранённых записей...";
+
+    try {
+        const data = await requestJson("/api/records");
+        const records = Array.isArray(data.records) ? data.records : [];
+
+        productionRecords.splice(
+            0,
+            productionRecords.length,
+            ...records.map(normalizeRecord)
+        );
+
+        renderProductionTable();
+        renderStatistics();
+        ui.storageStatus.textContent =
+            `Данные сохраняются на сервере. Записей: ${productionRecords.length}.`;
+    } catch (error) {
+        ui.storageStatus.textContent =
+            "Не удалось подключиться к хранилищу. Проверьте server.py.";
+        console.error("Ошибка загрузки записей:", error);
+    }
+}
+
 function openModal() {
     setModalVisibility(true);
     setMessage();
@@ -93,6 +120,7 @@ function closeModal() {
     setModalVisibility(false);
     ui.form.reset();
     setMessage();
+    setSubmitState(false);
 }
 
 function setModalVisibility(isOpen) {
@@ -106,7 +134,12 @@ function setMessage(text = "", type = "") {
     ui.message.className = type ? `form-message ${type}` : "form-message";
 }
 
-function addProductionRecord(event) {
+function setSubmitState(isSaving) {
+    ui.submitButton.disabled = isSaving;
+    ui.submitButton.textContent = isSaving ? "Сохранение..." : "Добавить запись";
+}
+
+async function addProductionRecord(event) {
     event.preventDefault();
 
     const record = readFormRecord();
@@ -117,24 +150,40 @@ function addProductionRecord(event) {
         return;
     }
 
-    productionRecords.unshift(record);
-    renderProductionTable();
-    renderStatistics();
-    closeModal();
+    setSubmitState(true);
+    setMessage("Сохраняю запись...");
+
+    try {
+        const savedRecord = await requestJson("/api/records", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            body: JSON.stringify(record),
+        });
+
+        productionRecords.unshift(normalizeRecord(savedRecord.record));
+        renderProductionTable();
+        renderStatistics();
+        ui.storageStatus.textContent =
+            `Данные сохраняются на сервере. Записей: ${productionRecords.length}.`;
+        closeModal();
+    } catch (error) {
+        setMessage(
+            error.message || "Не удалось сохранить запись на сервере.",
+            "error"
+        );
+        setSubmitState(false);
+        console.error("Ошибка сохранения записи:", error);
+    }
 }
 
 function readFormRecord() {
-    const quantity = Number(ui.quantity.value);
-    const goodQuantity = Number(ui.goodQuantity.value);
-    const defectQuantity = Number(ui.defectQuantity.value);
-
     return {
-        date: new Date(),
         productName: ui.productName.value.trim(),
-        quantity,
-        goodQuantity,
-        defectQuantity,
-        defectPercent: quantity > 0 ? (defectQuantity / quantity) * 100 : 0,
+        quantity: Number(ui.quantity.value),
+        goodQuantity: Number(ui.goodQuantity.value),
+        defectQuantity: Number(ui.defectQuantity.value),
         defectReason: ui.defectReason.value.trim(),
     };
 }
@@ -144,17 +193,17 @@ function validateRecord(record) {
         return "Укажите изделие.";
     }
 
-    if (!Number.isFinite(record.quantity) || record.quantity <= 0) {
-        return "Общее количество должно быть больше нуля.";
+    if (!Number.isInteger(record.quantity) || record.quantity <= 0) {
+        return "Общее количество должно быть целым числом больше нуля.";
     }
 
     if (
-        !Number.isFinite(record.goodQuantity) ||
-        !Number.isFinite(record.defectQuantity) ||
+        !Number.isInteger(record.goodQuantity) ||
+        !Number.isInteger(record.defectQuantity) ||
         record.goodQuantity < 0 ||
         record.defectQuantity < 0
     ) {
-        return "Количество годных изделий и брака не может быть отрицательным.";
+        return "Количество годных изделий и брака должно быть целым неотрицательным числом.";
     }
 
     if (record.goodQuantity + record.defectQuantity !== record.quantity) {
@@ -162,6 +211,47 @@ function validateRecord(record) {
     }
 
     return "";
+}
+
+function normalizeRecord(record) {
+    const quantity = Number(record.quantity) || 0;
+    const defectQuantity = Number(record.defectQuantity) || 0;
+
+    return {
+        id: record.id || "",
+        date: record.date || "",
+        productName: String(record.productName || ""),
+        quantity,
+        goodQuantity: Number(record.goodQuantity) || 0,
+        defectQuantity,
+        defectPercent: Number.isFinite(Number(record.defectPercent))
+            ? Number(record.defectPercent)
+            : quantity > 0
+                ? (defectQuantity / quantity) * 100
+                : 0,
+        defectReason: String(record.defectReason || ""),
+    };
+}
+
+async function requestJson(url, options = {}) {
+    const response = await fetch(url, {
+        cache: "no-store",
+        ...options,
+    });
+
+    let data = {};
+
+    try {
+        data = await response.json();
+    } catch {
+        data = {};
+    }
+
+    if (!response.ok) {
+        throw new Error(data.error || `Ошибка сервера: HTTP ${response.status}`);
+    }
+
+    return data;
 }
 
 function renderProductionTable() {
@@ -221,6 +311,12 @@ function renderStatistics() {
     ui.totalDefectPercent.textContent = `${defectPercent.toFixed(2)}%`;
 }
 
-function formatDate(date) {
+function formatDate(value) {
+    const date = value instanceof Date ? value : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "—";
+    }
+
     return new Intl.DateTimeFormat("ru-RU").format(date);
 }
