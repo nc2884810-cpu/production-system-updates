@@ -3,10 +3,12 @@
 const byId = (id) => document.getElementById(id);
 
 const productionRecords = [];
+let editingRecordId = null;
 
 const ui = {
     addButton: byId("addProductionButton"),
     modal: byId("productionModal"),
+    modalTitle: byId("productionModalTitle"),
     closeButton: byId("closeModalButton"),
     cancelButton: byId("cancelButton"),
     submitButton: byId("submitProductionButton"),
@@ -47,10 +49,11 @@ async function init() {
 }
 
 function bindEvents() {
-    ui.addButton.addEventListener("click", openModal);
+    ui.addButton.addEventListener("click", openCreateModal);
     ui.closeButton.addEventListener("click", closeModal);
     ui.cancelButton.addEventListener("click", closeModal);
-    ui.form.addEventListener("submit", addProductionRecord);
+    ui.form.addEventListener("submit", saveProductionRecord);
+    ui.tableBody.addEventListener("click", handleTableAction);
 
     ui.modal.addEventListener("click", (event) => {
         if (event.target === ui.modal) {
@@ -99,10 +102,8 @@ async function loadProductionRecords() {
             ...records.map(normalizeRecord)
         );
 
-        renderProductionTable();
-        renderStatistics();
-        ui.storageStatus.textContent =
-            `Данные сохраняются на сервере. Записей: ${productionRecords.length}.`;
+        renderAll();
+        updateStorageStatus();
     } catch (error) {
         ui.storageStatus.textContent =
             "Не удалось подключиться к хранилищу. Проверьте server.py.";
@@ -110,15 +111,35 @@ async function loadProductionRecords() {
     }
 }
 
-function openModal() {
-    setModalVisibility(true);
+function openCreateModal() {
+    editingRecordId = null;
+    ui.form.reset();
+    ui.modalTitle.textContent = "Добавить производство";
+    setSubmitState(false);
     setMessage();
+    setModalVisibility(true);
+    ui.productName.focus();
+}
+
+function openEditModal(record) {
+    editingRecordId = record.id;
+    ui.productName.value = record.productName;
+    ui.quantity.value = record.quantity;
+    ui.goodQuantity.value = record.goodQuantity;
+    ui.defectQuantity.value = record.defectQuantity;
+    ui.defectReason.value = record.defectReason;
+    ui.modalTitle.textContent = `Изменить запись №${record.id}`;
+    setSubmitState(false);
+    setMessage();
+    setModalVisibility(true);
     ui.productName.focus();
 }
 
 function closeModal() {
     setModalVisibility(false);
     ui.form.reset();
+    editingRecordId = null;
+    ui.modalTitle.textContent = "Добавить производство";
     setMessage();
     setSubmitState(false);
 }
@@ -136,10 +157,17 @@ function setMessage(text = "", type = "") {
 
 function setSubmitState(isSaving) {
     ui.submitButton.disabled = isSaving;
-    ui.submitButton.textContent = isSaving ? "Сохранение..." : "Добавить запись";
+
+    if (isSaving) {
+        ui.submitButton.textContent = "Сохранение...";
+        return;
+    }
+
+    ui.submitButton.textContent =
+        editingRecordId === null ? "Добавить запись" : "Сохранить изменения";
 }
 
-async function addProductionRecord(event) {
+async function saveProductionRecord(event) {
     event.preventDefault();
 
     const record = readFormRecord();
@@ -154,19 +182,14 @@ async function addProductionRecord(event) {
     setMessage("Сохраняю запись...");
 
     try {
-        const savedRecord = await requestJson("/api/records", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json; charset=utf-8",
-            },
-            body: JSON.stringify(record),
-        });
+        if (editingRecordId === null) {
+            await createProductionRecord(record);
+        } else {
+            await updateProductionRecord(editingRecordId, record);
+        }
 
-        productionRecords.unshift(normalizeRecord(savedRecord.record));
-        renderProductionTable();
-        renderStatistics();
-        ui.storageStatus.textContent =
-            `Данные сохраняются на сервере. Записей: ${productionRecords.length}.`;
+        renderAll();
+        updateStorageStatus();
         closeModal();
     } catch (error) {
         setMessage(
@@ -175,6 +198,89 @@ async function addProductionRecord(event) {
         );
         setSubmitState(false);
         console.error("Ошибка сохранения записи:", error);
+    }
+}
+
+async function createProductionRecord(record) {
+    const data = await requestJson("/api/records", {
+        method: "POST",
+        headers: jsonHeaders(),
+        body: JSON.stringify(record),
+    });
+
+    productionRecords.unshift(normalizeRecord(data.record));
+}
+
+async function updateProductionRecord(recordId, record) {
+    const data = await requestJson(`/api/records/${recordId}`, {
+        method: "PUT",
+        headers: jsonHeaders(),
+        body: JSON.stringify(record),
+    });
+
+    const index = productionRecords.findIndex(
+        (item) => item.id === Number(recordId)
+    );
+
+    if (index === -1) {
+        await loadProductionRecords();
+        return;
+    }
+
+    productionRecords[index] = normalizeRecord(data.record);
+}
+
+async function deleteProductionRecord(record) {
+    const confirmed = window.confirm(
+        `Удалить запись №${record.id} «${record.productName}»?\n\nЭто действие нельзя отменить.`
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+        await requestJson(`/api/records/${record.id}`, {
+            method: "DELETE",
+        });
+
+        const index = productionRecords.findIndex(
+            (item) => item.id === record.id
+        );
+
+        if (index !== -1) {
+            productionRecords.splice(index, 1);
+        }
+
+        renderAll();
+        updateStorageStatus();
+    } catch (error) {
+        window.alert(error.message || "Не удалось удалить запись.");
+        console.error("Ошибка удаления записи:", error);
+    }
+}
+
+function handleTableAction(event) {
+    const button = event.target.closest("button[data-action]");
+
+    if (!button) {
+        return;
+    }
+
+    const recordId = Number(button.dataset.recordId);
+    const record = productionRecords.find((item) => item.id === recordId);
+
+    if (!record) {
+        return;
+    }
+
+    if (button.dataset.action === "edit") {
+        openEditModal(record);
+        return;
+    }
+
+    if (button.dataset.action === "delete") {
+        deleteProductionRecord(record);
     }
 }
 
@@ -218,7 +324,7 @@ function normalizeRecord(record) {
     const defectQuantity = Number(record.defectQuantity) || 0;
 
     return {
-        id: record.id || "",
+        id: Number(record.id),
         date: record.date || "",
         productName: String(record.productName || ""),
         quantity,
@@ -230,6 +336,12 @@ function normalizeRecord(record) {
                 ? (defectQuantity / quantity) * 100
                 : 0,
         defectReason: String(record.defectReason || ""),
+    };
+}
+
+function jsonHeaders() {
+    return {
+        "Content-Type": "application/json; charset=utf-8",
     };
 }
 
@@ -254,6 +366,16 @@ async function requestJson(url, options = {}) {
     return data;
 }
 
+function renderAll() {
+    renderProductionTable();
+    renderStatistics();
+}
+
+function updateStorageStatus() {
+    ui.storageStatus.textContent =
+        `Данные сохраняются в SQLite. Записей: ${productionRecords.length}.`;
+}
+
 function renderProductionTable() {
     const hasRecords = productionRecords.length > 0;
 
@@ -273,6 +395,7 @@ function renderProductionTable() {
         appendCell(row, record.defectQuantity, "numeric");
         appendCell(row, `${record.defectPercent.toFixed(2)}%`, "numeric");
         appendCell(row, record.defectReason || "—", "reason-cell");
+        appendActionsCell(row, record);
 
         fragment.appendChild(row);
     }
@@ -289,6 +412,37 @@ function appendCell(row, value, className = "") {
     }
 
     row.appendChild(cell);
+}
+
+function appendActionsCell(row, record) {
+    const cell = document.createElement("td");
+    cell.className = "actions-cell";
+
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
+    actions.appendChild(
+        createActionButton("Изменить", "edit", record.id)
+    );
+    actions.appendChild(
+        createActionButton("Удалить", "delete", record.id, "delete")
+    );
+
+    cell.appendChild(actions);
+    row.appendChild(cell);
+}
+
+function createActionButton(text, action, recordId, extraClass = "") {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = text;
+    button.dataset.action = action;
+    button.dataset.recordId = String(recordId);
+    button.className = extraClass
+        ? `row-action-button ${extraClass}`
+        : "row-action-button";
+
+    return button;
 }
 
 function renderStatistics() {
