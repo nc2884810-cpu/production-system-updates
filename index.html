@@ -20,19 +20,19 @@
         <section class="statistics" aria-label="Статистика производства">
             <div class="stat-card">
                 <span class="stat-title">Всего произведено</span>
-                <strong>0</strong>
+                <strong id="totalProduced">0</strong>
             </div>
             <div class="stat-card">
                 <span class="stat-title">Годных</span>
-                <strong>0</strong>
+                <strong id="totalGood">0</strong>
             </div>
             <div class="stat-card">
                 <span class="stat-title">Брак</span>
-                <strong>0</strong>
+                <strong id="totalDefect">0</strong>
             </div>
             <div class="stat-card">
                 <span class="stat-title">Процент брака</span>
-                <strong>0%</strong>
+                <strong id="totalDefectPercent">0.00%</strong>
             </div>
         </section>
 
@@ -41,8 +41,33 @@
         </section>
 
         <section class="production-list">
-            <h2>Последние операции</h2>
-            <p class="empty-message">Производственных записей пока нет.</p>
+            <div class="section-heading">
+                <div>
+                    <h2>Последние операции</h2>
+                    <p class="section-note">Записи этой версии хранятся только до перезагрузки страницы.</p>
+                </div>
+            </div>
+
+            <p class="empty-message" id="emptyMessage">
+                Производственных записей пока нет.
+            </p>
+
+            <div class="table-wrapper" id="productionTableWrapper" hidden>
+                <table class="production-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Изделие</th>
+                            <th>Всего</th>
+                            <th>Годных</th>
+                            <th>Брак</th>
+                            <th>Брак, %</th>
+                            <th>Причина брака</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productionTableBody"></tbody>
+                </table>
+            </div>
         </section>
     </main>
 
@@ -83,7 +108,7 @@
 
                 <div class="form-actions">
                     <button type="button" id="cancelButton" class="secondary-button">Отмена</button>
-                    <button type="submit">Проверить данные</button>
+                    <button type="submit">Добавить запись</button>
                 </div>
             </form>
         </div>
