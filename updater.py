@@ -1,11 +1,13 @@
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
+from urllib.parse import urlencode
 import hashlib
 import json
 import os
 import shutil
 import tempfile
+import time
 from datetime import datetime
 
 ROOT = Path(__file__).resolve().parent
@@ -66,13 +68,22 @@ def github_raw_base(config):
     return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/"
 
 
+def add_query(url, **params):
+    separator = "&" if "?" in url else "?"
+    return url + separator + urlencode(params)
+
+
 def download_bytes(url):
     request = Request(
         url,
-        headers={"User-Agent": "production-system-updater/1.1"},
+        headers={
+            "User-Agent": "production-system-updater/1.2",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+        },
     )
 
-    with urlopen(request, timeout=15) as response:
+    with urlopen(request, timeout=20) as response:
         return response.read()
 
 
@@ -127,6 +138,7 @@ def main():
 
     local_version = current_version()
     manifest_url = base_url + config.get("manifest_file", "manifest.json")
+    manifest_url = add_query(manifest_url, cache=str(time.time_ns()))
 
     print(f"Текущая версия: {local_version}")
     print("Проверяю обновления...")
@@ -139,6 +151,8 @@ def main():
         return
 
     remote_version = str(manifest.get("version", "0.0.0"))
+    manifest_token = sha256_bytes(manifest_data)[:16]
+
     print(f"Версия на сервере: {remote_version}")
 
     if version_tuple(remote_version) <= version_tuple(local_version):
@@ -165,27 +179,34 @@ def main():
             target = ROOT / relative_path
 
             if is_protected(relative_path):
-                print(f"  ЗАЩИЩЁН   {relative_path}")
+                print(f"  ЗАЩИЩЁН       {relative_path}")
                 continue
 
             if file_is_current(target, expected_hash):
-                print(f"  БЕЗ ИЗМЕНЕНИЙ  {relative_path}")
+                print(f"  БЕЗ ИЗМЕНЕНИЙ {relative_path}")
                 continue
 
-            data = download_bytes(base_url + relative_path)
+            file_url = add_query(
+                base_url + relative_path,
+                version=remote_version,
+                manifest=manifest_token,
+            )
+            data = download_bytes(file_url)
 
             if expected_hash:
                 actual_hash = sha256_bytes(data)
                 if actual_hash.lower() != expected_hash.lower():
                     raise ValueError(
-                        f"Контрольная сумма не совпала: {relative_path}"
+                        f"Контрольная сумма не совпала: {relative_path}\n"
+                        f"Ожидалось: {expected_hash}\n"
+                        f"Получено:  {actual_hash}"
                     )
 
             temp_path = temp_dir / relative_path
             temp_path.parent.mkdir(parents=True, exist_ok=True)
             temp_path.write_bytes(data)
             downloaded.append((relative_path, temp_path))
-            print(f"  СКАЧАН    {relative_path}")
+            print(f"  СКАЧАН        {relative_path}")
 
         if not downloaded:
             VERSION_FILE.write_text(remote_version + "\n", encoding="utf-8")
@@ -200,7 +221,7 @@ def main():
             target = ROOT / relative_path
             backup_file(target, relative_path, backup_dir)
             atomic_replace(temp_path, target)
-            print(f"  ОБНОВЛЁН  {relative_path}")
+            print(f"  ОБНОВЛЁН      {relative_path}")
 
         VERSION_FILE.write_text(remote_version + "\n", encoding="utf-8")
 
