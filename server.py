@@ -1,6 +1,7 @@
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, urlparse
 import json
 import sqlite3
 
@@ -12,6 +13,15 @@ DB_FILE = DATA_DIR / "production.db"
 LEGACY_JSON_FILE = DATA_DIR / "production_records.json"
 MAX_REQUEST_SIZE = 1024 * 1024
 MIGRATION_KEY = "json_migration_v1"
+
+SORT_SQL = {
+    "date_desc": "date DESC, id DESC",
+    "date_asc": "date ASC, id ASC",
+    "quantity_desc": "quantity DESC, id DESC",
+    "quantity_asc": "quantity ASC, id DESC",
+    "defect_desc": "(CAST(defect_quantity AS REAL) / quantity) DESC, id DESC",
+    "defect_asc": "(CAST(defect_quantity AS REAL) / quantity) ASC, id DESC",
+}
 
 
 class RecordNotFoundError(Exception):
@@ -117,6 +127,56 @@ def validate_record_payload(payload):
     }
 
 
+def validate_date_filter(value, field_name):
+    if not value:
+        return ""
+
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        raise ValueError(
+            f"Фильтр «{field_name}» должен иметь формат ГГГГ-ММ-ДД."
+        )
+
+    return value
+
+
+def first_query_value(query, key, default=""):
+    values = query.get(key)
+    return values[0] if values else default
+
+
+def parse_filters(query):
+    search = first_query_value(query, "search").strip()
+    date_from = validate_date_filter(
+        first_query_value(query, "date_from"),
+        "Дата с",
+    )
+    date_to = validate_date_filter(
+        first_query_value(query, "date_to"),
+        "Дата по",
+    )
+    sort = first_query_value(query, "sort", "date_desc")
+    defect_only = first_query_value(query, "defect_only") == "1"
+
+    if len(search) > 200:
+        raise ValueError("Строка поиска слишком длинная.")
+
+    if date_from and date_to and date_from > date_to:
+        raise ValueError("Дата «с» не может быть позже даты «по».")
+
+    if sort not in SORT_SQL:
+        raise ValueError("Неизвестный вариант сортировки.")
+
+    return {
+        "search": search,
+        "date_from": date_from,
+        "date_to": date_to,
+        "sort": sort,
+        "defect_only": defect_only,
+    }
+
+
 def row_to_record(row):
     quantity = row["quantity"]
     defect_quantity = row["defect_quantity"]
@@ -154,10 +214,45 @@ def select_record(connection, record_id):
     ).fetchone()
 
 
-def get_records():
+def build_filter_sql(filters):
+    conditions = []
+    params = []
+
+    if filters["search"]:
+        conditions.append("product_name LIKE ?")
+        params.append(f'%{filters["search"]}%')
+
+    if filters["date_from"]:
+        conditions.append("substr(date, 1, 10) >= ?")
+        params.append(filters["date_from"])
+
+    if filters["date_to"]:
+        conditions.append("substr(date, 1, 10) <= ?")
+        params.append(filters["date_to"])
+
+    if filters["defect_only"]:
+        conditions.append("defect_quantity > 0")
+
+    where_sql = (
+        " WHERE " + " AND ".join(conditions)
+        if conditions
+        else ""
+    )
+
+    return where_sql, params
+
+
+def get_records(filters):
+    where_sql, params = build_filter_sql(filters)
+    order_sql = SORT_SQL[filters["sort"]]
+
     with connect_db() as connection:
+        total_count = connection.execute(
+            "SELECT COUNT(*) AS count FROM production_records"
+        ).fetchone()["count"]
+
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 id,
                 date,
@@ -167,11 +262,16 @@ def get_records():
                 defect_quantity,
                 defect_reason
             FROM production_records
-            ORDER BY id DESC
-            """
+            {where_sql}
+            ORDER BY {order_sql}
+            """,
+            params,
         ).fetchall()
 
-    return [row_to_record(row) for row in rows]
+    return {
+        "records": [row_to_record(row) for row in rows],
+        "totalCount": total_count,
+    }
 
 
 def create_record(payload):
@@ -391,16 +491,16 @@ class ProductionHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        parsed = urlparse(self.path)
 
-        if path == "/api/records":
-            self.handle_get_records()
+        if parsed.path == "/api/records":
+            self.handle_get_records(parse_qs(parsed.query))
             return
 
         super().do_GET()
 
     def do_POST(self):
-        path = self.path.split("?", 1)[0]
+        path = urlparse(self.path).path
 
         if path == "/api/records":
             self.handle_create_record()
@@ -409,7 +509,7 @@ class ProductionHandler(SimpleHTTPRequestHandler):
         self.send_json(404, {"error": "API-адрес не найден."})
 
     def do_PUT(self):
-        path = self.path.split("?", 1)[0]
+        path = urlparse(self.path).path
         record_id = parse_record_id(path)
 
         if record_id is None:
@@ -419,7 +519,7 @@ class ProductionHandler(SimpleHTTPRequestHandler):
         self.handle_update_record(record_id)
 
     def do_DELETE(self):
-        path = self.path.split("?", 1)[0]
+        path = urlparse(self.path).path
         record_id = parse_record_id(path)
 
         if record_id is None:
@@ -428,9 +528,12 @@ class ProductionHandler(SimpleHTTPRequestHandler):
 
         self.handle_delete_record(record_id)
 
-    def handle_get_records(self):
+    def handle_get_records(self, query):
         try:
-            self.send_json(200, {"records": get_records()})
+            filters = parse_filters(query)
+            self.send_json(200, get_records(filters))
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
         except sqlite3.DatabaseError as error:
             self.send_json(
                 500,
