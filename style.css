@@ -68,6 +68,7 @@ h1 {
 }
 
 .stat-card,
+.filters-panel,
 .production-list {
     background: var(--surface);
     border-radius: var(--radius);
@@ -95,7 +96,8 @@ h1 {
 
 button,
 input,
-textarea {
+textarea,
+select {
     font: inherit;
 }
 
@@ -113,7 +115,8 @@ button:disabled {
 
 button:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+select:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
@@ -124,8 +127,57 @@ textarea:focus-visible {
     color: #ffffff;
 }
 
+.filters-panel {
+    margin-top: 25px;
+    padding: 22px 25px;
+}
+
+.filters-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.filters-heading h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+}
+
+.filters-heading p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.4fr) repeat(2, minmax(150px, 0.8fr)) minmax(220px, 1fr);
+    gap: 14px;
+    align-items: end;
+}
+
+.filters-grid label {
+    font-size: 14px;
+}
+
+.checkbox-field {
+    display: flex;
+    align-items: center;
+    align-self: center;
+    gap: 9px;
+    font-weight: 600;
+}
+
+.checkbox-field input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+}
+
 .production-list {
-    margin-top: 35px;
+    margin-top: 25px;
     padding: 25px;
 }
 
@@ -277,11 +329,14 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
     width: 100%;
     padding: 11px 12px;
     border: 1px solid var(--border);
     border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
 }
 
 textarea {
@@ -312,6 +367,12 @@ textarea {
     color: var(--success);
 }
 
+@media (max-width: 950px) {
+    .filters-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
 @media (max-width: 800px) {
     .statistics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -323,15 +384,18 @@ textarea {
         padding: 18px;
     }
 
-    .page-header {
+    .page-header,
+    .filters-heading {
         flex-direction: column;
     }
 
-    .statistics {
+    .statistics,
+    .filters-grid {
         grid-template-columns: 1fr;
     }
 
-    .production-list {
+    .production-list,
+    .filters-panel {
         padding: 18px;
     }
 }
