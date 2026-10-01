@@ -1,9 +1,9 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "files": [
     {
       "path": "index.html",
-      "sha256": "c3ce9fbe6072b3f9de1a2cf812f42c52eb83286e4777e2f55afffc56a2c05425"
+      "sha256": "05cb14aca96066cedf6412c43adbc45b6b5e09c8538909ce815b0c9410919af0"
     },
     {
       "path": "style.css",
@@ -11,11 +11,11 @@
     },
     {
       "path": "main.js",
-      "sha256": "1a880273ec2ea79912f7b9e2850d4e4aa5767c0783897d6f94efb577ba8a9b70"
+      "sha256": "88832d3371d6a2d608deb8c26598198c4008ea2085cce676c7aae367b52020cc"
     },
     {
       "path": "server.py",
-      "sha256": "a0abb5de22ac38c16e5ad40c4bd40d89ee4743e248f0b9672ece29b9d768deb2"
+      "sha256": "e3dd0292a70c6c59a6cc535c339f081207c47b0bbd32474f3d73b1f569f6d981"
     },
     {
       "path": "updater.py",
