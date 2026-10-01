@@ -40,6 +40,50 @@
             <button id="addProductionButton" type="button">+ Добавить производство</button>
         </section>
 
+        <section class="filters-panel" aria-label="Поиск и фильтры">
+            <div class="filters-heading">
+                <div>
+                    <h2>Поиск и фильтры</h2>
+                    <p>Фильтрация выполняется сервером через SQLite.</p>
+                </div>
+                <button id="resetFiltersButton" class="secondary-button" type="button">Сбросить фильтры</button>
+            </div>
+
+            <div class="filters-grid">
+                <label>
+                    Поиск по изделию
+                    <input type="search" id="filterSearch" placeholder="Например: ABC-001" autocomplete="off">
+                </label>
+
+                <label>
+                    Дата с
+                    <input type="date" id="filterDateFrom">
+                </label>
+
+                <label>
+                    Дата по
+                    <input type="date" id="filterDateTo">
+                </label>
+
+                <label>
+                    Сортировка
+                    <select id="filterSort">
+                        <option value="date_desc">Сначала новые</option>
+                        <option value="date_asc">Сначала старые</option>
+                        <option value="quantity_desc">Количество: больше → меньше</option>
+                        <option value="quantity_asc">Количество: меньше → больше</option>
+                        <option value="defect_desc">Брак, %: больше → меньше</option>
+                        <option value="defect_asc">Брак, %: меньше → больше</option>
+                    </select>
+                </label>
+
+                <label class="checkbox-field">
+                    <input type="checkbox" id="filterDefectOnly">
+                    <span>Только записи с браком</span>
+                </label>
+            </div>
+        </section>
+
         <section class="production-list">
             <div class="section-heading">
                 <div>
