@@ -14,6 +14,10 @@ MAX_REQUEST_SIZE = 1024 * 1024
 MIGRATION_KEY = "json_migration_v1"
 
 
+class RecordNotFoundError(Exception):
+    pass
+
+
 def utc_now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -132,6 +136,24 @@ def row_to_record(row):
     }
 
 
+def select_record(connection, record_id):
+    return connection.execute(
+        """
+        SELECT
+            id,
+            date,
+            product_name,
+            quantity,
+            good_quantity,
+            defect_quantity,
+            defect_reason
+        FROM production_records
+        WHERE id = ?
+        """,
+        (record_id,),
+    ).fetchone()
+
+
 def get_records():
     with connect_db() as connection:
         rows = connection.execute(
@@ -179,23 +201,57 @@ def create_record(payload):
             ),
         )
 
-        row = connection.execute(
-            """
-            SELECT
-                id,
-                date,
-                product_name,
-                quantity,
-                good_quantity,
-                defect_quantity,
-                defect_reason
-            FROM production_records
-            WHERE id = ?
-            """,
-            (cursor.lastrowid,),
-        ).fetchone()
+        row = select_record(connection, cursor.lastrowid)
 
     return row_to_record(row)
+
+
+def update_record(record_id, payload):
+    record = validate_record_payload(payload)
+
+    with connect_db() as connection:
+        cursor = connection.execute(
+            """
+            UPDATE production_records
+            SET
+                product_name = ?,
+                quantity = ?,
+                good_quantity = ?,
+                defect_quantity = ?,
+                defect_reason = ?
+            WHERE id = ?
+            """,
+            (
+                record["productName"],
+                record["quantity"],
+                record["goodQuantity"],
+                record["defectQuantity"],
+                record["defectReason"],
+                record_id,
+            ),
+        )
+
+        if cursor.rowcount == 0:
+            raise RecordNotFoundError(
+                f"Запись №{record_id} не найдена."
+            )
+
+        row = select_record(connection, record_id)
+
+    return row_to_record(row)
+
+
+def delete_record(record_id):
+    with connect_db() as connection:
+        cursor = connection.execute(
+            "DELETE FROM production_records WHERE id = ?",
+            (record_id,),
+        )
+
+        if cursor.rowcount == 0:
+            raise RecordNotFoundError(
+                f"Запись №{record_id} не найдена."
+            )
 
 
 def metadata_value(connection, key):
@@ -303,6 +359,25 @@ def migrate_legacy_json():
         )
 
 
+def parse_record_id(path):
+    prefix = "/api/records/"
+
+    if not path.startswith(prefix):
+        return None
+
+    raw_id = path[len(prefix):]
+
+    if not raw_id or "/" in raw_id:
+        return None
+
+    try:
+        record_id = int(raw_id)
+    except ValueError:
+        return None
+
+    return record_id if record_id > 0 else None
+
+
 class ProductionHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -333,6 +408,26 @@ class ProductionHandler(SimpleHTTPRequestHandler):
 
         self.send_json(404, {"error": "API-адрес не найден."})
 
+    def do_PUT(self):
+        path = self.path.split("?", 1)[0]
+        record_id = parse_record_id(path)
+
+        if record_id is None:
+            self.send_json(404, {"error": "Запись не найдена."})
+            return
+
+        self.handle_update_record(record_id)
+
+    def do_DELETE(self):
+        path = self.path.split("?", 1)[0]
+        record_id = parse_record_id(path)
+
+        if record_id is None:
+            self.send_json(404, {"error": "Запись не найдена."})
+            return
+
+        self.handle_delete_record(record_id)
+
     def handle_get_records(self):
         try:
             self.send_json(200, {"records": get_records()})
@@ -355,6 +450,38 @@ class ProductionHandler(SimpleHTTPRequestHandler):
             self.send_json(
                 500,
                 {"error": f"Не удалось сохранить запись в базе: {error}"},
+            )
+
+    def handle_update_record(self, record_id):
+        try:
+            payload = self.read_json_body()
+            record = update_record(record_id, payload)
+            self.send_json(200, {"record": record})
+        except RecordNotFoundError as error:
+            self.send_json(404, {"error": str(error)})
+        except ValueError as error:
+            self.send_json(400, {"error": str(error)})
+        except json.JSONDecodeError:
+            self.send_json(400, {"error": "Некорректный JSON."})
+        except sqlite3.DatabaseError as error:
+            self.send_json(
+                500,
+                {"error": f"Не удалось изменить запись: {error}"},
+            )
+
+    def handle_delete_record(self, record_id):
+        try:
+            delete_record(record_id)
+            self.send_json(
+                200,
+                {"deleted": True, "id": record_id},
+            )
+        except RecordNotFoundError as error:
+            self.send_json(404, {"error": str(error)})
+        except sqlite3.DatabaseError as error:
+            self.send_json(
+                500,
+                {"error": f"Не удалось удалить запись: {error}"},
             )
 
     def read_json_body(self):
