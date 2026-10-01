@@ -44,7 +44,7 @@
             <div class="section-heading">
                 <div>
                     <h2>Последние операции</h2>
-                    <p class="section-note">Записи этой версии хранятся только до перезагрузки страницы.</p>
+                    <p class="section-note" id="storageStatus">Подключение к хранилищу...</p>
                 </div>
             </div>
 
@@ -81,34 +81,34 @@
             <form id="productionForm">
                 <label>
                     Изделие
-                    <input type="text" id="productName" placeholder="Например: ABC-001" autocomplete="off" required>
+                    <input type="text" id="productName" maxlength="200" placeholder="Например: ABC-001" autocomplete="off" required>
                 </label>
 
                 <label>
                     Количество
-                    <input type="number" id="quantity" min="1" placeholder="Например: 50" required>
+                    <input type="number" id="quantity" min="1" step="1" placeholder="Например: 50" required>
                 </label>
 
                 <label>
                     Годных
-                    <input type="number" id="goodQuantity" min="0" placeholder="Например: 47" required>
+                    <input type="number" id="goodQuantity" min="0" step="1" placeholder="Например: 47" required>
                 </label>
 
                 <label>
                     Брак
-                    <input type="number" id="defectQuantity" min="0" placeholder="Например: 3" required>
+                    <input type="number" id="defectQuantity" min="0" step="1" placeholder="Например: 3" required>
                 </label>
 
                 <label>
                     Причина брака
-                    <textarea id="defectReason" rows="3" placeholder="Например: дефект корпуса"></textarea>
+                    <textarea id="defectReason" rows="3" maxlength="2000" placeholder="Например: дефект корпуса"></textarea>
                 </label>
 
                 <div id="formMessage" class="form-message" aria-live="polite"></div>
 
                 <div class="form-actions">
                     <button type="button" id="cancelButton" class="secondary-button">Отмена</button>
-                    <button type="submit">Добавить запись</button>
+                    <button type="submit" id="submitProductionButton">Добавить запись</button>
                 </div>
             </form>
         </div>
