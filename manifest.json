@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.5.0",
   "files": [
     {
       "path": "index.html",
@@ -15,7 +15,7 @@
     },
     {
       "path": "server.py",
-      "sha256": "e3dd0292a70c6c59a6cc535c339f081207c47b0bbd32474f3d73b1f569f6d981"
+      "sha256": "d4f249197923568887559955570329b144384d6af3bdba9e16e3a028612928f9"
     },
     {
       "path": "updater.py",
